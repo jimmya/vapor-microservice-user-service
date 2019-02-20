@@ -8,6 +8,7 @@ struct UserController: RouteCollection {
         
         usersRouter.post(CreateUserRequest.self, at: "", use: register)
         usersRouter.post(GetUserRequest.self, at: "login", use: getUser)
+        usersRouter.post("verify", use: verify)
     }
 }
 
@@ -23,7 +24,13 @@ private extension UserController {
             let bcrypt = try req.make(BCryptDigest.self)
             let hashedPassword = try bcrypt.hash(createRequest.password)
             let user = User(username: createRequest.username, email: createRequest.email, password: hashedPassword)
-            return try userRepository.save(user: user, on: req).transform(to: HTTPStatus.created)
+            return try userRepository.save(user: user, on: req).flatMap(to: HTTPStatus.self) { user in
+                let session = UserSession(id: nil, userId: try user.requireID(), uuid: UUID(), expires: Date(timeIntervalSinceNow: 3600))
+                return session.save(on: req).flatMap(to: HTTPStatus.self) { session in
+                    let mailClient = try req.make(MailClient.self)
+                    return try mailClient.send(email: createRequest.email, subject: "Confirm your account!", text: "To confirm your account visit", html: nil, on: req).transform(to: HTTPStatus.created)
+                }
+            }
         }
     }
     
@@ -39,5 +46,10 @@ private extension UserController {
             }
             return try GetUserResponse(id: user.requireID(), username: user.username, email: user.email)
         }
+    }
+    
+    func verify(_ req: Request) throws -> Future<HTTPStatus> {
+        let code = try req.query.get(String.self, at: "code")
+        fatalError()
     }
 }

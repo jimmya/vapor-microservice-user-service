@@ -1,7 +1,7 @@
 import Vapor
 import FluentPostgreSQL
 
-protocol UserRepository: Service {
+protocol UserRepository: ServiceType {
     func findCount(username: String, email: String, on connectable: DatabaseConnectable) throws -> Future<Int>
     func find(email: String, on connectable: DatabaseConnectable) throws -> Future<User?>
     func find(user: UUID, on connectable: DatabaseConnectable) throws -> Future<User?>
@@ -9,6 +9,12 @@ protocol UserRepository: Service {
 }
 
 final class PostgreUserRepository: UserRepository {
+    
+    let database: PostgreSQLDatabase.ConnectionPool
+    
+    init(_ database: PostgreSQLDatabase.ConnectionPool) {
+        self.database = database
+    }
     
     func findCount(username: String, email: String, on connectable: DatabaseConnectable) throws -> EventLoopFuture<Int> {
         return User.query(on: connectable).group(.or) {
@@ -28,4 +34,17 @@ final class PostgreUserRepository: UserRepository {
     func save(user: User, on connectable: DatabaseConnectable) throws -> EventLoopFuture<User> {
         return user.save(on: connectable)
     }
+}
+
+//MARK: - ServiceType conformance
+extension PostgreUserRepository {
+    static let serviceSupports: [Any.Type] = [UserRepository.self]
+    
+    static func makeService(for worker: Container) throws -> Self {
+        return .init(try worker.connectionPool(to: .psql))
+    }
+}
+
+extension Database {
+    public typealias ConnectionPool = DatabaseConnectionPool<ConfiguredDatabase<Self>>
 }

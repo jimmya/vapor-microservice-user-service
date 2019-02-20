@@ -1,7 +1,8 @@
 import Vapor
 
-public func routes(_ router: Router) throws {
-    
-    let userController = UserController()
-    try router.register(collection: userController)
+public func routes(_ router: Router, _ container: Container) throws {
+    try router.register(collection: UserController())
+    router.get("status") { (req) -> HTTPStatus in
+        return .ok
+    }
 }

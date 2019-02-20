@@ -3,4 +3,5 @@ import FluentPostgreSQL
 
 public func migrate(migrations: inout MigrationConfig) throws {
     migrations.add(model: User.self, database: .psql)
+    migrations.add(model: UserSession.self, database: .psql)
 }
